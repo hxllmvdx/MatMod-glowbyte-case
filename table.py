@@ -89,7 +89,7 @@ if not missing_fires.empty:
     missing_data['fire'] = 1  # например, 0, если пожар не произошел в эти дни
     for col in temp_df.columns:
         if col not in missing_data.columns and col not in ['merge_key', 'fire']:
-            missing_data[col] = None
+            missing_data[col] = 0
     combined_df = pd.concat([temp_df, missing_data], ignore_index=True)
 else:
     combined_df = temp_df.copy()
@@ -142,11 +142,6 @@ supply_df['ПогрузкаНаСудно'] = pd.to_datetime(supply_df['Погр
 
 # 7. Добавление информации о поступлениях на склад в итоговую таблицу
 def add_weight_based_on_date_and_match(row, supply_df):
-    # Проверяем, есть ли столбец 'Марка' в row
-    if 'Марка' not in row:
-        # print(f"Ошибка: Столбец 'Марка' отсутствует в ряду: {row}")
-        return None
-
     # Преобразуем Дата акта в дату без времени
     date_act = row['Дата акта'].date()
 
@@ -155,15 +150,14 @@ def add_weight_based_on_date_and_match(row, supply_df):
         (date_act >= supply_df['ВыгрузкаНаСклад'].dt.date) &
         (date_act <= supply_df['ПогрузкаНаСудно'].dt.date) &
         (row['Склад'] == supply_df['Склад']) &
-        (row['Штабель'] == supply_df['Штабель']) &
-        (row['Марка'] == supply_df['Наим. ЕТСНГ'])  # Учитываем марку
-    ]
+        (row['Штабель'] == supply_df['Штабель'])
+        ]
 
     if not valid_supply_rows.empty:
-        # Если нашли совпадение, возвращаем вес из первого совпавшего
+        # Если нашли совпадение, возвращаем вес из первого совпавшег
         return valid_supply_rows.iloc[0]['На склад, тн']  # В данном случае "Вес" — это столбец в файле `supplies.csv`
     else:
-        return None
+        return 0
 
 # Применяем к каждому ряду финальной таблицы
 combined_df['Вес из поставки'] = combined_df.apply(
@@ -182,11 +176,14 @@ result_df = pd.merge(
 )
 
 # 9. Удаление временных и ненужных столбцов
-columns_to_drop = ['merge_key', 'Только_дата', 'Смена', 'Пикет', 'visibility']
+columns_to_drop = ['merge_key', 'Только_дата', 'Смена', 'Пикет', 'visibility', 'Марка_y', 'Вес_x', 'Длительность_x']
 result_df = result_df.drop(
     columns=[col for col in columns_to_drop if col in result_df.columns],
     errors='ignore'
 )
 
-# 10. Сохранение результата
+# 10. Заменить все NaN на 0 в итоговой таблице
+result_df = result_df.fillna(0)
+
+# 11. Сохранение результата
 result_df.to_csv('final_result.csv', index=False)
