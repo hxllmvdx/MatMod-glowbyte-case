@@ -1,8 +1,9 @@
-from msilib.schema import File
+import csv
+from io import StringIO
 
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, File
 from starlette.responses import JSONResponse
 
 from funcs import save_dataframe_to_db, create_work_table
@@ -34,15 +35,15 @@ class AddFilesRequest(BaseModel):
     weather_csv_pathes: list
 
 
-@app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
-    contents = await file.read()
-    # Do something with contents or save it to disk
-    return JSONResponse({
-        "filename": file.filename,
-        "content_type": file.content_type,
-        "size": len(contents)
-    })
+# @app.post("/upload/")
+# async def upload_file(file: UploadFile = File(...)):
+#     contents = await file.read()
+#     # Do something with contents or save it to disk
+#     return JSONResponse({
+#         "filename": file.filename,
+#         "content_type": file.content_type,
+#         "size": len(contents)
+#     })
 
 @app.post("/upload-csv/")
 async def upload_csv_files(files: list[UploadFile] = File(...)):
@@ -80,12 +81,6 @@ async def read_root(data: AddFilesRequest) -> dict:
 
     create_work_table(db_url)
     return {"message": "All tables are saved."}
-
-
-# Тестовый эндпоинт
-# @app.get("/")
-# async def root():
-#     return {"message": "FastAPI backend is running"}
 
 
 if __name__ == "__main__":
