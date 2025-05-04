@@ -6,10 +6,9 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Разрешенные источники
+    allow_origins="https://coal-calendar-mu.vercel.app/",  # Разрешенные источники
     allow_credentials=True,  # Разрешение на передачу cookies
     allow_methods=["*"],  # Разрешение всех HTTP-методов (GET, POST, PUT, DELETE и т.д.)
     allow_headers=["*"],  # Разрешение всех заголовков
@@ -45,6 +44,12 @@ async def read_root(data: AddFilesRequest) -> dict:
 
     create_work_table(db_url)
     return {"message": "All tables are saved."}
+
+
+# Тестовый эндпоинт
+# @app.get("/")
+# async def root():
+#     return {"message": "FastAPI backend is running"}
 
 
 if __name__ == "__main__":
