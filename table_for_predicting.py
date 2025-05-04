@@ -48,9 +48,9 @@ def add_weight_based_on_date_and_match(row, supply_df):
         return 0
 
 
-def processing_work_table(engine):
-    temp_df = pd.read_sql("SELECT * FROM temperature", con=engine)
-    supply_df = pd.read_sql("SELECT * FROM supplies", con=engine)
+def processing_work_table(engine, temperature='temperature', supplies='supplies', weather='weather'):
+    temp_df = pd.read_sql(f"SELECT * FROM {temperature}", con=engine)
+    supply_df = pd.read_sql(f"SELECT * FROM {supplies}", con=engine)
     # 2. Загрузка и обработка temperature.csv
     temp_df.rename(columns={
         'act_date': 'Дата акта',
@@ -64,7 +64,7 @@ def processing_work_table(engine):
 
     # 5. Загрузка погодных данных и агрегация по дням
     inspector = inspect(engine)
-    weather_tables = [t for t in inspector.get_table_names() if t.startswith('weather_')]
+    weather_tables = [t for t in inspector.get_table_names() if t.startswith(f'{weather}_')]
     weather_data = pd.DataFrame()
 
     # Пройдем по всем погодным файлам
