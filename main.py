@@ -1,6 +1,10 @@
+from msilib.schema import File
+
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile
+from starlette.responses import JSONResponse
+
 from funcs import save_dataframe_to_db, create_work_table
 from pydantic import BaseModel
 
@@ -28,6 +32,38 @@ class AddFilesRequest(BaseModel):
     supplies_csv_path: str
     fires_csv_path: str
     weather_csv_pathes: list
+
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile = File(...)):
+    contents = await file.read()
+    # Do something with contents or save it to disk
+    return JSONResponse({
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": len(contents)
+    })
+
+@app.post("/upload-csv/")
+async def upload_csv_files(files: list[UploadFile] = File(...)):
+    results = []
+
+    for file in files:
+        if file.content_type != "text/csv":
+            results.append({"filename": file.filename, "error": "Not a CSV file"})
+            continue
+
+        content = await file.read()
+        decoded = content.decode("utf-8")
+        reader = csv.reader(StringIO(decoded))
+        row_count = sum(1 for row in reader)
+
+        results.append({
+            "filename": file.filename,
+            "rows": row_count
+        })
+
+    return JSONResponse(content={"files": results})
 
 
 @app.post("/auth/login")
