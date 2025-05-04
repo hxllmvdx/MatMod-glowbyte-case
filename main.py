@@ -5,10 +5,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-# Добавление CORS middleware для управления доступом к API
-# origins - список разрешенных источников (доменов), которые могут обращаться к API
-# "*" - разрешает доступ с любого источника (используется только для разработки)
-origins = ["https://coal-calendar-mu.vercel.app"]
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # Разрешенные источники
@@ -17,12 +14,9 @@ app.add_middleware(
     allow_headers=["*"],  # Разрешение всех заголовков
 )
 
-class WordInput(BaseModel):
-    word: str
-
-@app.post("/process")
-def process_word(data: WordInput):
-    return {"received_word": data.word}
+@app.post("/auth/login")
+async def read_root() -> dict:
+    return {"message": "Welcome to your todo list."}
 
 
 if __name__ == "__main__":
