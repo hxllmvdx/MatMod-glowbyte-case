@@ -183,7 +183,31 @@ result_df = result_df.drop(
 )
 
 # 10. Заменить все NaN на 0 в итоговой таблице
-result_df = result_df.fillna(0)
+if 'Марка_x' in result_df.columns:
+    # Удаляем строки, где 'Марка' равна NaN
+    result_df = result_df.dropna(subset=['Марка_x'])
 
-# 11. Сохранение результата
-result_df.to_csv('final_result.csv', index=False)
+# 11. Заменить все оставшиеся NaN на 0 в итоговой таблице
+result_df = result_df.fillna(0)
+result_df['autumn'] = 0
+result_df['winter'] = 0
+result_df['spring'] = 0
+
+
+def get_season_flags(month):
+    if month in [3, 4, 5]:
+        return (0, 0, 1)  # весна
+    elif month in [9, 10, 11]:
+        return (1, 0, 0)  # осень
+    elif month in [12, 1, 2]:
+        return (0, 1, 0)  # зима
+    else:
+        return (0, 0, 0)  # не должно быть, но на всякий случай
+
+
+result_df[['autumn', 'winter', 'spring']] = result_df['Дата акта'].dt.month.apply(
+    lambda m: pd.Series(get_season_flags(m))
+)
+
+# 12. Сохранение результата
+result_df.to_csv('data/learning_table.csv', index=False)
