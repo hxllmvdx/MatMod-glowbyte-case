@@ -1,213 +1,247 @@
 import pandas as pd
-import glob
-from datetime import datetime, timedelta
 
 
-# Функция для обработки столбца 'Марка'
-def process_brand_column(df):
-    new_rows = []  # Список для новых строк, которые мы создадим
+def process_weather():
+    weather_19 = pd.read_csv('data/weather_data_2019.csv', sep=',').sort_values(by='date').iloc[:, :-2]
+    weather_20 = pd.read_csv('data/weather_data_2020.csv', sep=',').sort_values(by='date').iloc[:, :-2]
 
-    for _, row in df.iterrows():
-        mark_value = row['Марка']
+    weather_19['date'] = weather_19['date'].apply(lambda x: x.split(' ')[0])
+    weather_20['date'] = weather_20['date'].apply(lambda x: x.split(' ')[0])
 
-        # Если есть '-', обрезаем до первого '-'
-        if '-' in mark_value:
-            mark_value = mark_value.split('-')[0]
+    data = {}
 
-        # Если есть '/', разделяем строку на несколько строк
-        if '/' in mark_value:
-            marks = mark_value.split('/')
-            for mark in marks:
-                new_row = row.copy()
-                new_row['Марка'] = mark.strip()  # Присваиваем новый "Марка"
-                new_rows.append(new_row)
+    for date in weather_19['date'].unique():
+        temp = weather_19[weather_19['date'] == date]
+
+        temp_max = temp['t'].max()
+        temp_mean = temp['t'].mean()
+
+        humidity_max = temp['humidity'].max()
+        humidity_mean = temp['humidity'].mean()
+
+        precipitation = temp['precipitation'].max()
+
+        v_mean = temp['v_avg'].mean()
+        v_max = temp['v_max'].mean()
+
+        p_mean = temp['p'].mean()
+        p_max = temp['p'].max()
+
+        data['date'] = data.get('date', []) + [date]
+        data['temp_max'] = data.get('temp_max', []) + [temp_max]
+        data['temp_mean'] = data.get('temp_mean', []) + [temp_mean]
+        data['humidity_max'] = data.get('humidity_max', []) + [humidity_max]
+        data['humidity_mean'] = data.get('humidity_mean', []) + [humidity_mean]
+        data['precipitation'] = data.get('precipitation', []) + [precipitation]
+        data['v_mean'] = data.get('v_mean', []) + [v_mean]
+        data['v_max'] = data.get('v_max', []) + [v_max]
+        data['p_mean'] = data.get('p_mean', []) + [p_mean]
+        data['p_max'] = data.get('p_max', []) + [p_max]
+
+    for date in weather_20['date'].unique():
+        temp = weather_20[weather_20['date'] == date]
+
+        temp_max = temp['t'].max()
+        temp_mean = temp['t'].mean()
+
+        humidity_max = temp['humidity'].max()
+        humidity_mean = temp['humidity'].mean()
+
+        precipitation = temp['precipitation'].max()
+
+        v_mean = temp['v_avg'].mean()
+        v_max = temp['v_max'].mean()
+
+        p_mean = temp['p'].mean()
+        p_max = temp['p'].max()
+
+        data['date'] = data.get('date', []) + [date]
+        data['temp_max'] = data.get('temp_max', []) + [temp_max]
+        data['temp_mean'] = data.get('temp_mean', []) + [temp_mean]
+        data['humidity_max'] = data.get('humidity_max', []) + [humidity_max]
+        data['humidity_mean'] = data.get('humidity_mean', []) + [humidity_mean]
+        data['precipitation'] = data.get('precipitation', []) + [precipitation]
+        data['v_mean'] = data.get('v_mean', []) + [v_mean]
+        data['v_max'] = data.get('v_max', []) + [v_max]
+        data['p_mean'] = data.get('p_mean', []) + [p_mean]
+        data['p_max'] = data.get('p_max', []) + [p_max]
+
+    return pd.DataFrame(data)
+
+
+def process_fires():
+    fires = pd.read_csv('data/fires.csv', sep=';').sort_values(by='Дата начала')
+
+    fires['obj_type'] = fires['Склад'].astype(str) + '_' + fires['Штабель'].astype(str)
+
+    fires = fires.drop(columns=['Дата составления', 'Груз', 'Вес по акту, тн', 'Дата оконч.', 'Нач.форм.штабеля',
+                                'Склад', 'Штабель'])
+
+    columns = ['date', 'obj_type']
+    fires.columns = columns
+
+    fires['date'] = fires['date'].apply(lambda x: x.split(' ')[0])
+
+    return fires
+
+
+def process_temperature():
+    temperature = pd.read_csv('data/temperature.csv').sort_values(by='Дата акта')
+
+    temperature['obj_type'] = temperature['Склад'].astype(str) + '_' + temperature['Штабель'].astype(str)
+
+    temperature['Марка'] = temperature['Марка'].apply(lambda x: x.split('-')[0])
+    temperature = temperature[temperature['Марка'] == 'A1']
+
+    temperature = temperature.drop(columns=['Склад', 'Штабель', 'Пикет', 'Смена', 'Марка'])
+
+    columns = ['coal_temp', 'date', 'obj_type']
+    temperature.columns = columns
+
+    return temperature
+
+
+def merge_tables():
+    weather, fires, temperature = process_weather(), process_fires(), process_temperature()
+
+    filter_date = temperature['date'].min()
+
+    fires = fires[fires['date'] >= filter_date]
+
+    begin_date = '2020-05-11'
+
+    temperature = temperature[temperature['date'] >= begin_date]
+
+    last_date = temperature['date'].max()
+    weather = weather[weather['date'] <= last_date]
+
+    data = {}
+
+    for i in range(3413):
+        temp1 = temperature.iloc[i]
+        temp2 = temperature[temperature['date'] == temp1['date']]
+        temp2 = temp2[temp2['obj_type'] == temp1['obj_type']]
+        temp3 = weather[weather['date'] == temp1['date']]
+        targets = fires[fires['date'] == temp1['date']]
+        targets = targets[targets['obj_type'] == temp1['obj_type']]
+
+        data['date'] = data.get('date', []) + [temp1['date']]
+        data['obj_type'] = data.get('obj_type', []) + [temp1['obj_type']]
+        data['coal_temp'] = data.get('coal_temp', []) + [temp2['coal_temp'].max()]
+        data['temp_max'] = data.get('temp_max', []) + [temp3['temp_max'].values[0]]
+        data['temp_mean'] = data.get('temp_mean', []) + [temp3['temp_mean'].values[0]]
+        data['humidity_max'] = data.get('humidity_max', []) + [temp3['humidity_max'].values[0]]
+        data['humidity_mean'] = data.get('humidity_mean', []) + [temp3['humidity_mean'].values[0]]
+        data['precipitation'] = data.get('precipitation', []) + [temp3['precipitation'].values[0]]
+        data['v_mean'] = data.get('v_mean', []) + [temp3['v_mean'].values[0]]
+        data['v_max'] = data.get('v_max', []) + [temp3['v_max'].values[0]]
+        data['p_mean'] = data.get('p_mean', []) + [temp3['p_mean'].values[0]]
+        data['p_max'] = data.get('p_max', []) + [temp3['p_max'].values[0]]
+
+        month = temp1['date'].split('-')[1]
+
+        if month == '05':
+            data['spring'] = data.get('spring', []) + [1]
+            data['summer'] = data.get('summer', []) + [0]
+            data['autumn'] = data.get('autumn', []) + [0]
+        elif month in ['06', '07', '08']:
+            data['spring'] = data.get('spring', []) + [0]
+            data['summer'] = data.get('summer', []) + [1]
+            data['autumn'] = data.get('autumn', []) + [0]
         else:
-            row['Марка'] = mark_value
-            new_rows.append(row)
+            data['spring'] = data.get('spring', []) + [0]
+            data['summer'] = data.get('summer', []) + [0]
+            data['autumn'] = data.get('autumn', []) + [1]
 
-    return pd.DataFrame(new_rows)
+        event = 0 if not len(targets.values) else 1
+        data['target'] = data.get('target', []) + [event]
 
-
-def expand_date_range(start_date, end_date):
-    dates = []
-    current_date = start_date
-    while current_date <= end_date:
-        dates.append(current_date.date())
-        current_date += timedelta(days=1)
-    return dates
+    return pd.DataFrame(data).sort_values(by=['obj_type', 'date']).drop_duplicates()
 
 
-# 1. Загрузка и обработка данных о пожарах
-fires_df = pd.read_csv('data/fires.csv')
-fires_df['Дата начала'] = pd.to_datetime(fires_df['Дата начала'])
-fires_df['Дата оконч.'] = pd.to_datetime(fires_df['Дата оконч.'])
-fires_df['Марка'] = fires_df['Груз']
+def numerate():
+    df = merge_tables()
 
-# Вычисление длительности пожара в часах
-fires_df['Длительность'] = (fires_df['Дата оконч.'] - fires_df['Дата начала']).dt.total_seconds() / 3600
+    # Преобразование даты в datetime и сортировка
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values(by=['obj_type', 'date']).reset_index(drop=True)
 
-# Создаем полный список дней с пожарами
-fire_days_all = []
-for _, row in fires_df.iterrows():
-    days = expand_date_range(row['Дата начала'], row['Дата оконч.'])
-    for day in days:
-        fire_days_all.append({
-            'Дата акта': datetime.combine(day, datetime.min.time()),
-            'Склад': row['Склад'],
-            'Штабель': row['Штабель'],
-            'fire': 1,
-            'Вес': row['Вес по акту, тн'],  # Добавляем столбец "Вес"
-            'Длительность': row['Длительность'],  # Добавляем столбец "Длительность" в часах
-            'Марка': row['Марка']  # Добавляем столбец "Марка"
-        })
+    # Создание групп последовательных дней для каждого объекта
+    df['days_diff'] = df.groupby('obj_type')['date'].diff().dt.days.ne(1).cumsum()
+    df['sequence'] = df.groupby(['obj_type', 'days_diff']).cumcount() + 1
 
-fires_daily = pd.DataFrame(fire_days_all).drop_duplicates()
+    # Удаление вспомогательного столбца
+    df = df.drop(columns='days_diff')
 
-# 2. Загрузка и обработка temperature.csv
-temp_df = pd.read_csv('data/temperature.csv')
-temp_df['Дата акта'] = pd.to_datetime(temp_df['Дата акта'])
-
-temp_df = process_brand_column(temp_df)
-
-# 3. Объединение данных о пожарах с temperature.csv
-temp_df['merge_key'] = temp_df['Дата акта'].dt.strftime('%Y-%m-%d') + '|' + \
-                       temp_df['Склад'].astype(str) + '|' + \
-                       temp_df['Штабель'].astype(str) + '|' + \
-                       temp_df['Марка'].astype(str)
-
-fires_daily['merge_key'] = fires_daily['Дата акта'].dt.strftime('%Y-%m-%d') + '|' + \
-                           fires_daily['Склад'].astype(str) + '|' + \
-                           fires_daily['Штабель'].astype(str) + '|' + \
-                           fires_daily['Марка'].astype(str)
-# Находим отсутствующие записи
-missing_fires = fires_daily[~fires_daily['merge_key'].isin(temp_df['merge_key'])]
-
-# Добавляем отсутствующие записи
-if not missing_fires.empty:
-    missing_data = missing_fires[['Дата акта', 'Склад', 'Штабель', 'fire', 'Вес', 'Длительность']].copy()
-    # Установим 'fire' для пропущенных строк в 0 (или любое другое значение)
-    missing_data['fire'] = 1  # например, 0, если пожар не произошел в эти дни
-    for col in temp_df.columns:
-        if col not in missing_data.columns and col not in ['merge_key', 'fire']:
-            missing_data[col] = 0
-    combined_df = pd.concat([temp_df, missing_data], ignore_index=True)
-else:
-    combined_df = temp_df.copy()
-
-# 4. Добавляем флаги пожара и вес
-combined_df = pd.merge(
-    combined_df.drop('fire', axis=1, errors='ignore'),
-    fires_daily[['merge_key', 'fire', 'Вес', 'Длительность', 'Марка']],  # Сохраняем столбец 'Марка'
-    on='merge_key',
-    how='left'
-)
-combined_df['fire'] = combined_df['fire'].fillna(0).astype(int)
-combined_df['Только_дата'] = combined_df['Дата акта'].dt.date
+    return df
 
 
-# 5. Загрузка погодных данных и агрегация по дням
-weather_data = pd.DataFrame()
+def delete_less_than_3():
+    df = numerate()
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values(by=['obj_type', 'date'])
+    df['group'] = (df.groupby('obj_type')['date'].diff().dt.days.ne(1)).cumsum()
 
-# Пройдем по всем погодным файлам
-for file in glob.glob('data/weather_data_*.csv'):
-    df = pd.read_csv(file)
-    df['Дата'] = pd.to_datetime(df['date'])
-    df['Только_дата'] = df['Дата'].dt.date
+    # Расчет длины каждой группы
+    group_sizes = df.groupby(['obj_type', 'group']).size().reset_index(name='group_size')
 
-    # Исключаем столбцы 'visibility' и 'date' для агрегации
-    columns_for_aggregation = [col for col in df.columns if col not in ['visibility', 'date', 'Дата', 'Только_дата']]
+    # Объединение с исходным DataFrame и фильтрация
+    df = df.merge(group_sizes, on=['obj_type', 'group'])
+    df = df[df['group_size'] >= 3].drop(columns=['group', 'group_size'])
 
-    # Преобразуем все столбцы, которые участвуют в агрегации, в числовые (если это возможно)
-    df[columns_for_aggregation] = df[columns_for_aggregation].apply(pd.to_numeric, errors='coerce')
-
-    # Группировка данных по дате и вычисление статистики для всех числовых столбцов
-    daily_df = df.groupby('Только_дата').agg(
-        **{f"mean_{col}": (col, 'mean') for col in columns_for_aggregation},  # Среднее
-        **{f"max_{col}": (col, 'max') for col in columns_for_aggregation},  # Максимум
-        **{f"min_{col}": (col, 'min') for col in columns_for_aggregation}  # Минимум
-    ).reset_index()
-
-    # Округляем средние значения до 3 знаков после запятой
-    mean_columns = [col for col in daily_df.columns if col.startswith('mean_')]
-    daily_df[mean_columns] = daily_df[mean_columns].round(3)
-
-    # Добавление в общий DataFrame погодных данных
-    weather_data = pd.concat([weather_data, daily_df])
-
-# 6. Загрузка данных о поступлениях на склад (supplies.csv)
-supply_df = pd.read_csv('data/supplies.csv')
-supply_df['ВыгрузкаНаСклад'] = pd.to_datetime(supply_df['ВыгрузкаНаСклад'])
-supply_df['ПогрузкаНаСудно'] = pd.to_datetime(supply_df['ПогрузкаНаСудно'])
+    return df
 
 
-# 7. Добавление информации о поступлениях на склад в итоговую таблицу
-def add_weight_based_on_date_and_match(row, supply_df):
-    # Преобразуем Дата акта в дату без времени
-    date_act = row['Дата акта'].date()
+def shift_target():
+    df = delete_less_than_3()
 
-    # Получаем строки, где дата акта попадает в диапазон
-    valid_supply_rows = supply_df[
-        (date_act >= supply_df['ВыгрузкаНаСклад'].dt.date) &
-        (date_act <= supply_df['ПогрузкаНаСудно'].dt.date) &
-        (row['Склад'] == supply_df['Склад']) &
-        (row['Штабель'] == supply_df['Штабель'])
-        ]
+    df['date'] = pd.to_datetime(df['date'])
 
-    if not valid_supply_rows.empty:
-        # Если нашли совпадение, возвращаем вес из первого совпавшег
-        return valid_supply_rows.iloc[0]['На склад, тн']  # В данном случае "Вес" — это столбец в файле `supplies.csv`
-    else:
-        return 0
+    # Шаг 1: Создание групп для каждого объекта с учетом разрывов в датах и target=1
+    df = df.sort_values(by=['obj_type', 'date'])
 
-# Применяем к каждому ряду финальной таблицы
-combined_df['Вес из поставки'] = combined_df.apply(
-    add_weight_based_on_date_and_match, axis=1, supply_df=supply_df
-)
+    # Группировка по разрывам в датах (более 1 дня)
+    df['date_diff'] = df.groupby('obj_type')['date'].diff().dt.days.fillna(0)
+    df['gap'] = (df['date_diff'] != 1).astype(int)
+    df['group'] = df.groupby(['obj_type', df['gap'].cumsum()]).ngroup()
 
-combined_df['Вес из поставки'] = combined_df['Вес из поставки'].round(2)
+    # Шаг 3: Сдвиг target на 3 дня назад и фильтрация
+    df['shifted_target'] = df.groupby(['obj_type', 'group'])['target'].shift(-3)
+    df = df.dropna(subset=['shifted_target'])
 
-# 8. Финальное объединение с погодой
-result_df = pd.merge(
-    combined_df,
-    weather_data,
-    left_on='Только_дата',
-    right_on='Только_дата',
-    how='left'
-)
+    # Удаление вспомогательных столбцов
+    df = df.drop(columns=['date_diff', 'gap'])
 
-# 9. Удаление временных и ненужных столбцов
-columns_to_drop = ['merge_key', 'Только_дата', 'Смена', 'Пикет', 'visibility', 'Марка_y', 'Вес_x', 'Длительность_x']
-result_df = result_df.drop(
-    columns=[col for col in columns_to_drop if col in result_df.columns],
-    errors='ignore'
-)
-
-# 10. Заменить все NaN на 0 в итоговой таблице
-if 'Марка_x' in result_df.columns:
-    # Удаляем строки, где 'Марка' равна NaN
-    result_df = result_df.dropna(subset=['Марка_x'])
-
-# 11. Заменить все оставшиеся NaN на 0 в итоговой таблице
-result_df = result_df.fillna(0)
-result_df['autumn'] = 0
-result_df['winter'] = 0
-result_df['spring'] = 0
+    return df
 
 
-def get_season_flags(month):
-    if month in [3, 4, 5]:
-        return (0, 0, 1)  # весна
-    elif month in [9, 10, 11]:
-        return (1, 0, 0)  # осень
-    elif month in [12, 1, 2]:
-        return (0, 1, 0)  # зима
-    else:
-        return (0, 0, 0)  # не должно быть, но на всякий случай
+def add_features(df):
+    # 1. Сортировка данных внутри групп
+    df = df.sort_values(by=['obj_type', 'group', 'date'])
+
+    # 2. Расчет скользящего среднего с окном 3 дня внутри каждой группы
+    window_size = 3  # Можно изменить размер окна
+    df['coal_temp_rolling_mean'] = (
+        df.groupby(['obj_type', 'group'])['coal_temp']
+        .transform(lambda x: x.rolling(window=window_size, min_periods=1).mean())
+    )
+
+    # 3. Заполнение пропусков (если нужно)
+    df['coal_temp_rolling_mean'] = df['coal_temp_rolling_mean'].ffill()
+
+    group_mean = df.groupby("obj_type")["coal_temp"].transform("mean")
+    df["coal_temp_deviation"] = df["coal_temp"] - group_mean
+
+    df["month"] = df["date"].dt.month
+
+    # Дисперсия с ddof=0 (для выборки)
+    df['coal_temp_var'] = (
+        df.groupby(['obj_type', 'group'])['coal_temp']
+        .transform(lambda x: x.var(ddof=0)))
+
+    df['coal_temp_p_mean'] = df['coal_temp'] * df['p_mean']
+
+    return df
 
 
-result_df[['autumn', 'winter', 'spring']] = result_df['Дата акта'].dt.month.apply(
-    lambda m: pd.Series(get_season_flags(m))
-)
-
-# 12. Сохранение результата
-result_df.to_csv('data/learning_table.csv', index=False)
+add_features(shift_target()).to_csv('data/learning_table.csv', sep=';', index=False)
