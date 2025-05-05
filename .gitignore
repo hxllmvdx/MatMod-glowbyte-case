@@ -161,3 +161,4 @@ data/database_user.json
 #.idea/
 
 data/*.csv
+.idea
