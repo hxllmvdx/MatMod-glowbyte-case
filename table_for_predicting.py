@@ -1,5 +1,6 @@
 import pandas as pd
 import glob
+from sqlalchemy import inspect
 from datetime import datetime, timedelta
 
 
@@ -47,19 +48,28 @@ def add_weight_based_on_date_and_match(row, supply_df):
         return 0
 
 
-def processing_work_table():
+def processing_work_table(engine, temperature='temperature', supplies='supplies', weather='weather'):
+    temp_df = pd.read_sql(f"SELECT * FROM {temperature}", con=engine)
+    supply_df = pd.read_sql(f"SELECT * FROM {supplies}", con=engine)
     # 2. Загрузка и обработка temperature.csv
-    temp_df = pd.read_csv('data/temperature.csv')
+    temp_df.rename(columns={
+        'act_date': 'Дата акта',
+        'warehouse': 'Склад',
+        'stack': 'Штабель',
+        'grade': 'Марка',
+        'picket': 'Пикет'
+    }, inplace=True)
     temp_df['Дата акта'] = pd.to_datetime(temp_df['Дата акта'])
-
     temp_df = process_brand_column(temp_df)
 
     # 5. Загрузка погодных данных и агрегация по дням
+    inspector = inspect(engine)
+    weather_tables = [t for t in inspector.get_table_names() if t.startswith(f'{weather}_')]
     weather_data = pd.DataFrame()
 
     # Пройдем по всем погодным файлам
-    for file in glob.glob('data/weather_data_*.csv'):
-        df = pd.read_csv(file)
+    for table in weather_tables:
+        df = pd.read_sql(f'SELECT * FROM "{table}"', con=engine)
         df['Дата'] = pd.to_datetime(df['date'])
         df['Только_дата'] = df['Дата'].dt.date
 
@@ -84,7 +94,13 @@ def processing_work_table():
         weather_data = pd.concat([weather_data, daily_df])
 
     # 6. Загрузка данных о поступлениях на склад (supplies.csv)
-    supply_df = pd.read_csv('data/supplies.csv')
+    supply_df.rename(columns={
+        'unloading_date': 'ВыгрузкаНаСклад',
+        'loading_date': 'ПогрузкаНаСудно',
+        'warehouse_weight': 'На склад, тн',
+        'stack': 'Штабель',
+        'warehouse': 'Склад'
+    }, inplace=True)
     supply_df['ВыгрузкаНаСклад'] = pd.to_datetime(supply_df['ВыгрузкаНаСклад'])
     supply_df['ПогрузкаНаСудно'] = pd.to_datetime(supply_df['ПогрузкаНаСудно'])
 
@@ -124,17 +140,24 @@ def processing_work_table():
 
     def get_season_flags(month):
         if month in [3, 4, 5]:
-            return (0, 0, 1)  # весна
+            return (0, 0, 1)
         elif month in [9, 10, 11]:
-            return (1, 0, 0)  # осень
+            return (1, 0, 0)
         elif month in [12, 1, 2]:
-            return (0, 1, 0)  # зима
+            return (0, 1, 0)
         else:
-            return (0, 0, 0)  # не должно быть, но на всякий случай
+            return (0, 0, 0)
 
     result_df[['autumn', 'winter', 'spring']] = result_df['Дата акта'].dt.month.apply(
         lambda m: pd.Series(get_season_flags(m))
     )
+    result_df = result_df.rename(columns={
+        'Склад': 'warehouse',
+        'Штабель': 'stack',
+        'Марка': 'grade',
+        'Дата акта': 'act_date',
+        'Вес из поставки': 'supply_weight'
+    })
 
     return result_df
 
